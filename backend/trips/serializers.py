@@ -47,23 +47,26 @@ class TripSerializer(serializers.ModelSerializer):
         model = Trip
         fields = ['id', 'name', 'start_date', 'end_date', 'group_budget',
                  'created_by', 'created_at', 'trip_code', 'participants', 'activities']
+        extra_kwargs = {
+            'trip_code': {'required': True}
+        }
+    
+    def validate(self, data):
+        if 'trip_code' in data and Trip.objects.filter(trip_code=data['trip_code']).exists():
+            raise serializers.ValidationError({'trip_code': 'This trip code is already in use.'})
+        return data
     
     def create(self, validated_data):
-        # Generate unique trip code
-        while True:
-            code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-            if not Trip.objects.filter(trip_code=code).exists():
-                break
+        # Remove created_by if it somehow got included
+        validated_data.pop('created_by', None)
         
         trip = Trip.objects.create(
             **validated_data,
-            created_by=self.context['request'].user,
-            trip_code=code
+            created_by=self.context['request'].user
         )
         
         # Add creator as participant
         TripParticipant.objects.create(trip=trip, user=self.context['request'].user)
-        
         return trip
 
 class InviteUserSerializer(serializers.Serializer):
@@ -78,4 +81,3 @@ class VoteSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActivityVote
         fields = ['vote']
-

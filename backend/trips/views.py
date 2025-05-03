@@ -1,6 +1,3 @@
-from django.shortcuts import render
-
-# Create your views here.
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, permission_classes
@@ -14,34 +11,13 @@ class TripListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        return Trip.objects.filter(participants__user=self.request.user)
-    
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try:
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response(
-                serializer.data,
-                status=status.HTTP_201_CREATED,
-                headers=headers
-            )
-        except Exception as e:
-            return Response(
-                {'detail': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Include trips where user is either creator or participant
+        return Trip.objects.filter(
+            participants__user=self.request.user
+        ).distinct().order_by('-created_at')
     
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-
-
 
 class TripDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = TripSerializer
@@ -56,10 +32,17 @@ class ActivityListView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         trip_id = self.kwargs['trip_id']
-        return Activity.objects.filter(trip_id=trip_id, trip__participants__user=self.request.user)
+        return Activity.objects.filter(
+            trip_id=trip_id, 
+            trip__participants__user=self.request.user
+        ).order_by('date', 'time')
     
     def perform_create(self, serializer):
-        trip = get_object_or_404(Trip, id=self.kwargs['trip_id'], participants__user=self.request.user)
+        trip = get_object_or_404(
+            Trip, 
+            id=self.kwargs['trip_id'], 
+            participants__user=self.request.user
+        )
         serializer.save(trip=trip, created_by=self.request.user)
 
 class ActivityDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -68,7 +51,10 @@ class ActivityDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         trip_id = self.kwargs['trip_id']
-        return Activity.objects.filter(trip_id=trip_id, trip__participants__user=self.request.user)
+        return Activity.objects.filter(
+            trip_id=trip_id, 
+            trip__participants__user=self.request.user
+        )
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
@@ -80,10 +66,16 @@ def invite_user(request, trip_id):
         user = User.objects.get(email=serializer.validated_data['email'])
         
         if TripParticipant.objects.filter(trip=trip, user=user).exists():
-            return Response({'detail': 'User is already a participant'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': 'User is already a participant'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         TripParticipant.objects.create(trip=trip, user=user)
-        return Response({'detail': 'User invited successfully'}, status=status.HTTP_201_CREATED)
+        return Response(
+            {'detail': 'User invited successfully'}, 
+            status=status.HTTP_201_CREATED
+        )
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -104,7 +96,10 @@ def vote_activity(request, trip_id, activity_id):
             user=request.user,
             defaults={'vote': serializer.validated_data['vote']}
         )
-        return Response({'detail': 'Vote recorded'}, status=status.HTTP_201_CREATED)
+        return Response(
+            {'detail': 'Vote recorded'}, 
+            status=status.HTTP_201_CREATED
+        )
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -113,12 +108,21 @@ def vote_activity(request, trip_id, activity_id):
 def join_trip(request):
     trip_code = request.data.get('trip_code')
     if not trip_code:
-        return Response({'detail': 'Trip code is required'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'detail': 'Trip code is required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     trip = get_object_or_404(Trip, trip_code=trip_code)
     
     if TripParticipant.objects.filter(trip=trip, user=request.user).exists():
-        return Response({'detail': 'Already a participant'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'detail': 'Already a participant'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
     TripParticipant.objects.create(trip=trip, user=request.user)
-    return Response({'detail': 'Joined trip successfully'}, status=status.HTTP_201_CREATED)
+    return Response(
+        {'detail': 'Joined trip successfully'}, 
+        status=status.HTTP_201_CREATED
+    )
