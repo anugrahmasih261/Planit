@@ -22,6 +22,8 @@ import {
     ListItem,
     ListItemText,
     Avatar,
+    Alert,
+    CircularProgress,
     InputAdornment
 } from '@mui/material';
 import { 
@@ -49,30 +51,38 @@ const TripDetailPage = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
-    
+
+    // State management
     const [trip, setTrip] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [activityDialogOpen, setActivityDialogOpen] = useState(false);
     const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
     const [email, setEmail] = useState('');
     const [anchorEl, setAnchorEl] = useState(null);
+    const [editActivityId, setEditActivityId] = useState(null);
     
-    // New activity form state
-    const [activityTitle, setActivityTitle] = useState('');
-    const [activityDate, setActivityDate] = useState(null);
-    const [activityTime, setActivityTime] = useState('');
-    const [activityCategory, setActivityCategory] = useState('OT');
-    const [activityCost, setActivityCost] = useState('');
-    const [activityNotes, setActivityNotes] = useState('');
+    // Activity form state
+    const [activityForm, setActivityForm] = useState({
+        title: '',
+        date: null,
+        time: '',
+        category: 'OT',
+        estimated_cost: '',
+        notes: ''
+    });
     
+    // Fetch trip data with error handling
     const fetchTrip = async () => {
         try {
+            setLoading(true);
+            setError('');
             const data = await tripService.getTrip(id, user.access);
             setTrip(data);
         } catch (err) {
             console.error('Failed to fetch trip:', err);
-            setError('Failed to load trip details');
+            setError(err.detail || 'Failed to load trip details');
         } finally {
             setLoading(false);
         }
@@ -82,80 +92,156 @@ const TripDetailPage = () => {
         fetchTrip();
     }, [id, user.access]);
     
-    const handleMenuOpen = (event) => {
-        setAnchorEl(event.currentTarget);
-    };
+    // Menu handlers
+    const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
+    const handleMenuClose = () => setAnchorEl(null);
     
-    const handleMenuClose = () => {
-        setAnchorEl(null);
-    };
-    
+    // Trip actions
     const handleDeleteTrip = async () => {
-        try {
-            await tripService.deleteTrip(id, user.access);
-            navigate('/');
-        } catch (err) {
-            console.error('Failed to delete trip:', err);
-            setError('Failed to delete trip');
+        if (window.confirm('Are you sure you want to delete this trip?')) {
+            try {
+                await tripService.deleteTrip(id, user.access);
+                navigate('/');
+            } catch (err) {
+                console.error('Failed to delete trip:', err);
+                setError(err.detail || 'Failed to delete trip');
+            }
         }
     };
     
+    // Participant actions
     const handleInviteUser = async () => {
+        if (!email) {
+            setError('Please enter an email address');
+            return;
+        }
+        
         try {
             await tripService.inviteUser(id, email, user.access);
             setEmail('');
             setInviteDialogOpen(false);
-            fetchTrip(); // Refresh trip data
+            setSuccess('Invitation sent successfully!');
+            setTimeout(() => setSuccess(''), 3000);
+            fetchTrip();
         } catch (err) {
             console.error('Failed to invite user:', err);
-            setError('Failed to invite user');
+            setError(err.detail || 'Failed to invite user');
         }
     };
     
-    const handleCreateActivity = async () => {
+    // Activity actions
+    const handleActivitySubmit = async () => {
+        if (!activityForm.title || !activityForm.date) {
+            setError('Title and date are required');
+            return;
+        }
+        
         try {
             const activityData = {
-                title: activityTitle,
-                date: activityDate.toISOString().split('T')[0],
-                time: activityTime || null,
-                category: activityCategory,
-                estimated_cost: activityCost || null,
-                notes: activityNotes || null,
+                title: activityForm.title,
+                date: activityForm.date.toISOString().split('T')[0],
+                time: activityForm.time || null,
+                category: activityForm.category,
+                estimated_cost: activityForm.estimated_cost || null,
+                notes: activityForm.notes || null,
             };
             
-            await tripService.createActivity(id, activityData, user.access);
+            if (editActivityId) {
+                await tripService.updateActivity(id, editActivityId, activityData, user.access);
+                setSuccess('Activity updated successfully!');
+            } else {
+                await tripService.createActivity(id, activityData, user.access);
+                setSuccess('Activity created successfully!');
+            }
+            
             setActivityDialogOpen(false);
             resetActivityForm();
-            fetchTrip(); // Refresh trip data
+            setTimeout(() => setSuccess(''), 3000);
+            fetchTrip();
         } catch (err) {
-            console.error('Failed to create activity:', err);
-            setError('Failed to create activity');
+            console.error('Failed to save activity:', err);
+            setError(err.detail || 'Failed to save activity');
         }
     };
     
     const resetActivityForm = () => {
-        setActivityTitle('');
-        setActivityDate(null);
-        setActivityTime('');
-        setActivityCategory('OT');
-        setActivityCost('');
-        setActivityNotes('');
+        setActivityForm({
+            title: '',
+            date: null,
+            time: '',
+            category: 'OT',
+            estimated_cost: '',
+            notes: ''
+        });
+        setEditActivityId(null);
+    };
+    
+    const handleEditActivity = (activity) => {
+        setActivityForm({
+            title: activity.title,
+            date: new Date(activity.date),
+            time: activity.time || '',
+            category: activity.category,
+            estimated_cost: activity.estimated_cost || '',
+            notes: activity.notes || ''
+        });
+        setEditActivityId(activity.id);
+        setActivityDialogOpen(true);
+    };
+    
+    const handleDeleteActivity = async (activityId) => {
+        if (window.confirm('Are you sure you want to delete this activity?')) {
+            try {
+                await tripService.deleteActivity(id, activityId, user.access);
+                setSuccess('Activity deleted successfully!');
+                setTimeout(() => setSuccess(''), 3000);
+                fetchTrip();
+            } catch (err) {
+                console.error('Failed to delete activity:', err);
+                setError('Failed to delete activity');
+            }
+        }
     };
     
     const handleVote = async (activityId, vote) => {
         try {
             await tripService.voteActivity(id, activityId, vote, user.access);
-            fetchTrip(); // Refresh trip data
+            fetchTrip();
         } catch (err) {
             console.error('Failed to vote:', err);
             setError('Failed to record vote');
         }
     };
     
+    const handleCopyTripCode = () => {
+        if (trip?.trip_code) {
+            navigator.clipboard.writeText(trip.trip_code);
+            setSuccess('Trip code copied to clipboard!');
+            setTimeout(() => setSuccess(''), 3000);
+        } else {
+            setError('No trip code available');
+        }
+    };
+    
+    // Helper functions for safe data access
+    const getParticipantInitial = (participant) => {
+        const displayName = participant?.user?.username || participant?.user?.email || '?';
+        return displayName.charAt(0).toUpperCase();
+    };
+    
+    const getParticipantName = (participant) => {
+        return participant?.user?.username || participant?.user?.email || 'Unknown participant';
+    };
+    
+    const isOrganizer = (participant) => {
+        return participant?.user?.id === trip?.created_by?.id;
+    };
+    
+    // Loading and error states
     if (loading) {
         return (
-            <Container>
-                <Typography>Loading...</Typography>
+            <Container sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+                <CircularProgress />
             </Container>
         );
     }
@@ -163,17 +249,17 @@ const TripDetailPage = () => {
     if (!trip) {
         return (
             <Container>
-                <Typography color="error">{error || 'Trip not found'}</Typography>
+                <Alert severity="error">{error || 'Trip not found'}</Alert>
             </Container>
         );
     }
     
     // Prepare data for budget chart
     const budgetData = {
-        labels: trip.activities.map(activity => activity.title),
+        labels: trip.activities?.map(activity => activity?.title).filter(Boolean) || [],
         datasets: [
             {
-                data: trip.activities.map(activity => activity.estimated_cost || 0),
+                data: trip.activities?.map(activity => activity?.estimated_cost || 0) || [],
                 backgroundColor: [
                     '#FF6384',
                     '#36A2EB',
@@ -188,7 +274,8 @@ const TripDetailPage = () => {
     
     // Group activities by date
     const activitiesByDate = {};
-    trip.activities.forEach(activity => {
+    trip.activities?.forEach(activity => {
+        if (!activity?.date) return;
         const date = activity.date;
         if (!activitiesByDate[date]) {
             activitiesByDate[date] = [];
@@ -198,31 +285,43 @@ const TripDetailPage = () => {
     
     return (
         <Container maxWidth="lg">
+            {/* Success and error messages */}
+            {success && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                    {success}
+                </Alert>
+            )}
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    {error}
+                </Alert>
+            )}
+            
             {/* Trip Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h4" component="h1">
-                    {trip.name}
+                    {trip.name || 'Untitled Trip'}
                 </Typography>
                 
-                <Box>
-                    <IconButton onClick={handleMenuOpen}>
-                        <MoreVert />
-                    </IconButton>
-                    <Menu
-                        anchorEl={anchorEl}
-                        open={Boolean(anchorEl)}
-                        onClose={handleMenuClose}
-                    >
-                        <MenuItem onClick={() => { navigate(`/trips/${id}/edit`); handleMenuClose(); }}>
-                            <Edit sx={{ mr: 1 }} /> Edit Trip
-                        </MenuItem>
-                        {trip.created_by.id === user.id && (
+                {trip.created_by?.id === user.id && (
+                    <Box>
+                        <IconButton onClick={handleMenuOpen}>
+                            <MoreVert />
+                        </IconButton>
+                        <Menu
+                            anchorEl={anchorEl}
+                            open={Boolean(anchorEl)}
+                            onClose={handleMenuClose}
+                        >
+                            <MenuItem onClick={() => { navigate(`/trips/${id}/edit`); handleMenuClose(); }}>
+                                <Edit sx={{ mr: 1 }} /> Edit Trip
+                            </MenuItem>
                             <MenuItem onClick={() => { handleDeleteTrip(); handleMenuClose(); }}>
                                 <Delete sx={{ mr: 1 }} /> Delete Trip
                             </MenuItem>
-                        )}
-                    </Menu>
-                </Box>
+                        </Menu>
+                    </Box>
+                )}
             </Box>
             
             {/* Trip Info */}
@@ -234,7 +333,7 @@ const TripDetailPage = () => {
                                 Trip Details
                             </Typography>
                             <Typography>
-                                <strong>Dates:</strong> {new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()}
+                                <strong>Dates:</strong> {trip.start_date ? new Date(trip.start_date).toLocaleDateString() : 'N/A'} - {trip.end_date ? new Date(trip.end_date).toLocaleDateString() : 'N/A'}
                             </Typography>
                             {trip.group_budget && (
                                 <Typography>
@@ -242,7 +341,7 @@ const TripDetailPage = () => {
                                 </Typography>
                             )}
                             <Typography>
-                                <strong>Created by:</strong> {trip.created_by.username}
+                                <strong>Created by:</strong> {trip.created_by?.username || trip.created_by?.email || 'Unknown'}
                             </Typography>
                             
                             <Box sx={{ mt: 2 }}>
@@ -257,7 +356,7 @@ const TripDetailPage = () => {
                                 <Button 
                                     variant="outlined" 
                                     startIcon={<Share />}
-                                    onClick={() => navigator.clipboard.writeText(trip.trip_code)}
+                                    onClick={handleCopyTripCode}
                                 >
                                     Copy Trip Code
                                 </Button>
@@ -270,17 +369,17 @@ const TripDetailPage = () => {
                     <Card>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
-                                Participants
+                                Participants ({trip.participants?.length || 0})
                             </Typography>
                             <List>
-                                {trip.participants.map(participant => (
-                                    <ListItem key={participant.user.id}>
+                                {trip.participants?.map(participant => (
+                                    <ListItem key={participant?.user?.id || participant?.id}>
                                         <Avatar sx={{ mr: 2 }}>
-                                            {participant.user.username.charAt(0).toUpperCase()}
+                                            {getParticipantInitial(participant)}
                                         </Avatar>
                                         <ListItemText 
-                                            primary={participant.user.username}
-                                            secondary={participant.user.email}
+                                            primary={getParticipantName(participant)}
+                                            secondary={isOrganizer(participant) ? "Organizer" : ""}
                                         />
                                     </ListItem>
                                 ))}
@@ -291,7 +390,7 @@ const TripDetailPage = () => {
             </Grid>
             
             {/* Budget Visualization */}
-            {trip.activities.some(a => a.estimated_cost) && (
+            {trip.activities?.some(a => a?.estimated_cost) && (
                 <Box sx={{ mb: 4 }}>
                     <Typography variant="h5" gutterBottom>
                         Budget Breakdown
@@ -302,7 +401,7 @@ const TripDetailPage = () => {
                 </Box>
             )}
             
-            {/* Activities */}
+            {/* Activities Section */}
             <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h5">
@@ -311,67 +410,82 @@ const TripDetailPage = () => {
                     <Button 
                         variant="contained" 
                         startIcon={<Add />}
-                        onClick={() => setActivityDialogOpen(true)}
+                        onClick={() => {
+                            resetActivityForm();
+                            setActivityDialogOpen(true);
+                        }}
                     >
                         Add Activity
                     </Button>
                 </Box>
                 
-                {Object.entries(activitiesByDate).map(([date, activities]) => (
-                    <Box key={date} sx={{ mb: 4 }}>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
-                            {new Date(date).toLocaleDateString()}
-                        </Typography>
-                        <Divider sx={{ mb: 2 }} />
-                        <Grid container spacing={2}>
-                            {activities.map(activity => (
-                                <Grid item xs={12} sm={6} md={4} key={activity.id}>
-                                    <ActivityItem 
-                                        activity={activity}
-                                        onVote={handleVote}
-                                        currentUserId={user.id}
-                                    />
-                                </Grid>
-                            ))}
-                        </Grid>
-                    </Box>
-                ))}
-                
-                {trip.activities.length === 0 && (
+                {Object.keys(activitiesByDate).length > 0 ? (
+                    Object.entries(activitiesByDate).map(([date, activities]) => (
+                        <Box key={date} sx={{ mb: 4 }}>
+                            <Typography variant="h6" sx={{ mb: 2 }}>
+                                {date ? new Date(date).toLocaleDateString() : 'No date'}
+                            </Typography>
+                            <Divider sx={{ mb: 2 }} />
+                            <Grid container spacing={2}>
+                                {activities.map(activity => (
+                                    <Grid item xs={12} sm={6} md={4} key={activity?.id}>
+                                        <ActivityItem 
+                                            activity={activity}
+                                            onVote={handleVote}
+                                            onEdit={() => handleEditActivity(activity)}
+                                            onDelete={() => handleDeleteActivity(activity.id)}
+                                            currentUserId={user.id}
+                                        />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        </Box>
+                    ))
+                ) : (
                     <Typography variant="body1" color="text.secondary">
                         No activities added yet. Click "Add Activity" to get started!
                     </Typography>
                 )}
             </Box>
             
-            {/* Error Display */}
-            {error && (
-                <Typography color="error" sx={{ mb: 2 }}>
-                    {error}
-                </Typography>
-            )}
-            
-            {/* Add Activity Dialog */}
-            <Dialog open={activityDialogOpen} onClose={() => setActivityDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Add New Activity</DialogTitle>
+            {/* Activity Dialog */}
+            <Dialog 
+                open={activityDialogOpen} 
+                onClose={() => {
+                    setActivityDialogOpen(false);
+                    resetActivityForm();
+                }} 
+                maxWidth="sm" 
+                fullWidth
+            >
+                <DialogTitle>{editActivityId ? 'Edit Activity' : 'Add New Activity'}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 2 }}>
                         <TextField
                             fullWidth
                             label="Title"
-                            value={activityTitle}
-                            onChange={(e) => setActivityTitle(e.target.value)}
+                            value={activityForm.title}
+                            onChange={(e) => setActivityForm({...activityForm, title: e.target.value})}
                             sx={{ mb: 2 }}
                             required
+                            error={!activityForm.title}
+                            helperText={!activityForm.title ? 'Required' : ''}
                         />
                         
                         <LocalizationProvider dateAdapter={AdapterDateFns}>
                             <DatePicker
                                 label="Date"
-                                value={activityDate}
-                                onChange={(newValue) => setActivityDate(newValue)}
+                                value={activityForm.date}
+                                onChange={(newValue) => setActivityForm({...activityForm, date: newValue})}
                                 renderInput={(params) => (
-                                    <TextField {...params} fullWidth sx={{ mb: 2 }} required />
+                                    <TextField 
+                                        {...params} 
+                                        fullWidth 
+                                        sx={{ mb: 2 }} 
+                                        required 
+                                        error={!activityForm.date}
+                                        helperText={!activityForm.date ? 'Required' : ''}
+                                    />
                                 )}
                             />
                         </LocalizationProvider>
@@ -380,8 +494,8 @@ const TripDetailPage = () => {
                             fullWidth
                             label="Time (optional)"
                             type="time"
-                            value={activityTime}
-                            onChange={(e) => setActivityTime(e.target.value)}
+                            value={activityForm.time}
+                            onChange={(e) => setActivityForm({...activityForm, time: e.target.value})}
                             InputLabelProps={{ shrink: true }}
                             sx={{ mb: 2 }}
                         />
@@ -390,8 +504,8 @@ const TripDetailPage = () => {
                             fullWidth
                             label="Category"
                             select
-                            value={activityCategory}
-                            onChange={(e) => setActivityCategory(e.target.value)}
+                            value={activityForm.category}
+                            onChange={(e) => setActivityForm({...activityForm, category: e.target.value})}
                             sx={{ mb: 2 }}
                         >
                             <MenuItem value="AD">Adventure</MenuItem>
@@ -404,8 +518,8 @@ const TripDetailPage = () => {
                             fullWidth
                             label="Estimated Cost (optional)"
                             type="number"
-                            value={activityCost}
-                            onChange={(e) => setActivityCost(e.target.value)}
+                            value={activityForm.estimated_cost}
+                            onChange={(e) => setActivityForm({...activityForm, estimated_cost: e.target.value})}
                             InputProps={{
                                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
                             }}
@@ -417,19 +531,22 @@ const TripDetailPage = () => {
                             label="Notes (optional)"
                             multiline
                             rows={3}
-                            value={activityNotes}
-                            onChange={(e) => setActivityNotes(e.target.value)}
+                            value={activityForm.notes}
+                            onChange={(e) => setActivityForm({...activityForm, notes: e.target.value})}
                         />
                     </Box>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setActivityDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={() => {
+                        setActivityDialogOpen(false);
+                        resetActivityForm();
+                    }}>Cancel</Button>
                     <Button 
-                        onClick={handleCreateActivity} 
+                        onClick={handleActivitySubmit} 
                         variant="contained"
-                        disabled={!activityTitle || !activityDate}
+                        disabled={!activityForm.title || !activityForm.date}
                     >
-                        Add Activity
+                        {editActivityId ? 'Save Changes' : 'Add Activity'}
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -447,6 +564,8 @@ const TripDetailPage = () => {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         sx={{ mt: 2 }}
+                        error={!email}
+                        helperText={!email ? 'Required' : ''}
                     />
                 </DialogContent>
                 <DialogActions>

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
     TextField, 
@@ -9,42 +9,47 @@ import {
     Box,
     Grid,
     InputAdornment,
-    Alert,
-    FormHelperText
+    Alert
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import tripService from '../api/trips';
 
-const CreateTripPage = () => {
+const EditTripPage = () => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const { user } = useAuth();
     const [name, setName] = useState('');
-    const [tripCode, setTripCode] = useState('');
     const [startDate, setStartDate] = useState(null);
     const [endDate, setEndDate] = useState(null);
     const [groupBudget, setGroupBudget] = useState('');
     const [error, setError] = useState('');
-    const [fieldErrors, setFieldErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { user } = useAuth();
-    const navigate = useNavigate();
 
-    const generateTripCode = () => {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let result = '';
-        for (let i = 0; i < 6; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        setTripCode(result);
-    };
+    useEffect(() => {
+        const fetchTrip = async () => {
+            try {
+                const trip = await tripService.getTrip(id, user.access);
+                setName(trip.name);
+                setStartDate(new Date(trip.start_date));
+                setEndDate(new Date(trip.end_date));
+                setGroupBudget(trip.group_budget || '');
+            } catch (err) {
+                console.error('Failed to fetch trip:', err);
+                setError('Failed to load trip details');
+            }
+        };
+
+        fetchTrip();
+    }, [id, user.access]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        setFieldErrors({});
         setIsSubmitting(true);
         
-        if (!name || !tripCode || !startDate || !endDate) {
+        if (!name || !startDate || !endDate) {
             setError('Please fill in all required fields');
             setIsSubmitting(false);
             return;
@@ -59,24 +64,16 @@ const CreateTripPage = () => {
         try {
             const tripData = {
                 name,
-                trip_code: tripCode,
                 start_date: startDate.toISOString().split('T')[0],
                 end_date: endDate.toISOString().split('T')[0],
                 group_budget: groupBudget || null
             };
             
-            await tripService.createTrip(tripData, user.access);
-            navigate('/');
+            await tripService.updateTrip(id, tripData, user.access);
+            navigate(`/trips/${id}`);
         } catch (err) {
-            console.error('Trip creation error:', err);
-            if (err?.detail) {
-                setError(err.detail);
-            } else if (err?.errors) {
-                setFieldErrors(err.errors);
-                setError('Please fix the validation errors');
-            } else {
-                setError('Failed to create trip. Please try again.');
-            }
+            console.error('Failed to update trip:', err);
+            setError(err.detail || 'Failed to update trip. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -86,7 +83,7 @@ const CreateTripPage = () => {
         <Container maxWidth="md">
             <Box sx={{ mt: 4 }}>
                 <Typography variant="h4" component="h1" gutterBottom>
-                    Create New Trip
+                    Edit Trip
                 </Typography>
                 
                 {error && (
@@ -104,38 +101,7 @@ const CreateTripPage = () => {
                                 label="Trip Name"
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
-                                error={!!fieldErrors.name}
-                                helperText={fieldErrors.name?.[0] || ' '}
                             />
-                        </Grid>
-
-                        <Grid item xs={12}>
-                            <TextField
-                                required
-                                fullWidth
-                                label="Trip Code"
-                                value={tripCode}
-                                onChange={(e) => setTripCode(e.target.value)}
-                                error={!!fieldErrors.trip_code}
-                                helperText={fieldErrors.trip_code?.[0] || ' '}
-                                inputProps={{
-                                    pattern: "[A-Za-z0-9-]+",
-                                    title: "Only letters, numbers, and hyphens are allowed"
-                                }}
-                                InputProps={{
-                                    endAdornment: (
-                                        <Button 
-                                            onClick={generateTripCode}
-                                            size="small"
-                                        >
-                                            Generate
-                                        </Button>
-                                    )
-                                }}
-                            />
-                            <FormHelperText>
-                                Create a unique code to share with friends (e.g., SUMMER-2023)
-                            </FormHelperText>
                         </Grid>
                         
                         <Grid item xs={12} sm={6}>
@@ -148,8 +114,6 @@ const CreateTripPage = () => {
                                         textField: {
                                             fullWidth: true,
                                             required: true,
-                                            error: !!fieldErrors.start_date,
-                                            helperText: fieldErrors.start_date?.[0] || ' '
                                         }
                                     }}
                                 />
@@ -167,8 +131,6 @@ const CreateTripPage = () => {
                                         textField: {
                                             fullWidth: true,
                                             required: true,
-                                            error: !!fieldErrors.end_date,
-                                            helperText: fieldErrors.end_date?.[0] || ' '
                                         }
                                     }}
                                 />
@@ -187,8 +149,6 @@ const CreateTripPage = () => {
                                         <InputAdornment position="start">$</InputAdornment>
                                     ),
                                 }}
-                                error={!!fieldErrors.group_budget}
-                                helperText={fieldErrors.group_budget?.[0] || ' '}
                             />
                         </Grid>
                         
@@ -200,7 +160,7 @@ const CreateTripPage = () => {
                                 fullWidth
                                 disabled={isSubmitting}
                             >
-                                {isSubmitting ? 'Creating...' : 'Create Trip'}
+                                {isSubmitting ? 'Saving...' : 'Save Changes'}
                             </Button>
                         </Grid>
                     </Grid>
@@ -210,4 +170,4 @@ const CreateTripPage = () => {
     );
 };
 
-export default CreateTripPage;
+export default EditTripPage;
