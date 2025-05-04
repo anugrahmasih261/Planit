@@ -69,6 +69,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
 ]
 
+CORS_ALLOW_CREDENTIALS = True
+
 # Add this to your settings.py
 APPEND_SLASH = False
 

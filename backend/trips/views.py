@@ -26,6 +26,32 @@ class TripDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get_queryset(self):
         return Trip.objects.filter(participants__user=self.request.user)
 
+
+#old one
+
+# class ActivityListView(generics.ListCreateAPIView):
+#     serializer_class = ActivitySerializer
+#     permission_classes = [permissions.IsAuthenticated]
+    
+#     def get_queryset(self):
+#         trip_id = self.kwargs['trip_id']
+#         return Activity.objects.filter(
+#             trip_id=trip_id, 
+#             trip__participants__user=self.request.user
+#         ).order_by('date', 'time')
+    
+#     def perform_create(self, serializer):
+#         trip = get_object_or_404(
+#             Trip, 
+#             id=self.kwargs['trip_id'], 
+#             participants__user=self.request.user
+#         )
+#         serializer.save(trip=trip, created_by=self.request.user)
+
+
+
+#new one
+
 class ActivityListView(generics.ListCreateAPIView):
     serializer_class = ActivitySerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -44,6 +70,9 @@ class ActivityListView(generics.ListCreateAPIView):
             participants__user=self.request.user
         )
         serializer.save(trip=trip, created_by=self.request.user)
+
+
+
 
 class ActivityDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ActivitySerializer

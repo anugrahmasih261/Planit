@@ -34,10 +34,11 @@ const ActivityItem = ({ activity, onVote, currentUserId }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [isVoting, setIsVoting] = useState(false);
     
     // Edit form state
     const [title, setTitle] = useState(activity.title);
-    const [date, setDate] = useState(activity.date);
+    const [date, setDate] = useState(new Date(activity.date));
     const [time, setTime] = useState(activity.time || '');
     const [category, setCategory] = useState(activity.category);
     const [estimatedCost, setEstimatedCost] = useState(activity.estimated_cost || '');
@@ -65,10 +66,10 @@ const ActivityItem = ({ activity, onVote, currentUserId }) => {
         try {
             const activityData = {
                 title,
-                date,
+                date: date.toISOString().split('T')[0], // Proper date formatting
                 time: time || null,
                 category,
-                estimated_cost: estimatedCost || null,
+                estimated_cost: estimatedCost ? parseFloat(estimatedCost) : null,
                 notes: notes || null,
             };
             
@@ -80,7 +81,6 @@ const ActivityItem = ({ activity, onVote, currentUserId }) => {
             );
             
             setEditDialogOpen(false);
-            // You might want to add a callback here to refresh the parent component
         } catch (err) {
             console.error('Failed to update activity:', err);
         }
@@ -94,15 +94,27 @@ const ActivityItem = ({ activity, onVote, currentUserId }) => {
                 user.access
             );
             setDeleteDialogOpen(false);
-            // You might want to add a callback here to refresh the parent component
         } catch (err) {
             console.error('Failed to delete activity:', err);
         }
     };
     
-    const userVote = activity.votes.find(vote => vote.user === currentUserId);
-    const upvotes = activity.votes.filter(vote => vote.vote).length;
-    const downvotes = activity.votes.filter(vote => !vote.vote).length;
+    const handleVote = async (voteValue) => {
+        if (isVoting) return;
+        
+        setIsVoting(true);
+        try {
+            await onVote(activity.id, voteValue);
+        } catch (err) {
+            console.error('Failed to vote:', err);
+        } finally {
+            setIsVoting(false);
+        }
+    };
+
+    const userVote = activity.votes?.find(vote => vote.user === currentUserId);
+    const upvotes = activity.votes?.filter(vote => vote.vote).length || 0;
+    const downvotes = activity.votes?.filter(vote => !vote.vote).length || 0;
     
     const categoryMap = {
         'AD': 'Adventure',
@@ -110,9 +122,9 @@ const ActivityItem = ({ activity, onVote, currentUserId }) => {
         'ST': 'Sightseeing',
         'OT': 'Other'
     };
-    
+
     return (
-        <Card>
+        <Card sx={{ mb: 2 }}>
             <CardContent>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="h6" component="h3">
@@ -164,22 +176,31 @@ const ActivityItem = ({ activity, onVote, currentUserId }) => {
                     </Typography>
                 )}
                 
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {/* Voting Section - Fixed */}
+                <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    borderTop: '1px solid #eee',
+                    pt: 1,
+                    mt: 2
+                }}>
                     <IconButton 
                         size="small" 
                         color={userVote?.vote ? 'primary' : 'default'}
-                        onClick={() => onVote(activity.id, true)}
+                        onClick={() => handleVote(true)}
+                        disabled={isVoting}
                     >
                         <ThumbUp fontSize="small" />
                     </IconButton>
-                    <Typography variant="body2" sx={{ mr: 1 }}>
+                    <Typography variant="body2" sx={{ mr: 2 }}>
                         {upvotes}
                     </Typography>
                     
                     <IconButton 
                         size="small" 
                         color={userVote?.vote === false ? 'error' : 'default'}
-                        onClick={() => onVote(activity.id, false)}
+                        onClick={() => handleVote(false)}
+                        disabled={isVoting}
                     >
                         <ThumbDown fontSize="small" />
                     </IconButton>

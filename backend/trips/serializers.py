@@ -20,7 +20,31 @@ class ActivityVoteSerializer(serializers.ModelSerializer):
         model = ActivityVote
         fields = ['id', 'user', 'vote', 'voted_at']
 
+
+
+
+# class ActivitySerializer(serializers.ModelSerializer):
+#     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
+#     votes = ActivityVoteSerializer(many=True, read_only=True)
+#     upvotes = serializers.SerializerMethodField()
+#     downvotes = serializers.SerializerMethodField()
+    
+#     class Meta:
+#         model = Activity
+#         fields = ['id', 'trip', 'title', 'date', 'time', 'category', 
+#                  'estimated_cost', 'notes', 'created_by', 'created_at',
+#                  'votes', 'upvotes', 'downvotes']
+    
+#     def get_upvotes(self, obj):
+#         return obj.votes.filter(vote=True).count()
+    
+#     def get_downvotes(self, obj):
+#         return obj.votes.filter(vote=False).count()
+
+# new one
+
 class ActivitySerializer(serializers.ModelSerializer):
+    trip = serializers.PrimaryKeyRelatedField(read_only=True)
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     votes = ActivityVoteSerializer(many=True, read_only=True)
     upvotes = serializers.SerializerMethodField()
@@ -31,12 +55,20 @@ class ActivitySerializer(serializers.ModelSerializer):
         fields = ['id', 'trip', 'title', 'date', 'time', 'category', 
                  'estimated_cost', 'notes', 'created_by', 'created_at',
                  'votes', 'upvotes', 'downvotes']
+        extra_kwargs = {
+            'estimated_cost': {'required': False, 'allow_null': True},
+            'time': {'required': False, 'allow_null': True},
+            'notes': {'required': False, 'allow_null': True},
+            'date': {'required': True}
+        }
     
     def get_upvotes(self, obj):
         return obj.votes.filter(vote=True).count()
     
     def get_downvotes(self, obj):
         return obj.votes.filter(vote=False).count()
+
+
 
 class TripSerializer(serializers.ModelSerializer):
     created_by = serializers.PrimaryKeyRelatedField(read_only=True)

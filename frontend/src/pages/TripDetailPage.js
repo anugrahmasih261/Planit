@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-    Container, 
-    Typography, 
-    Box, 
-    Button, 
-    Grid, 
-    Card, 
+import {
+    Container,
+    Typography,
+    Box,
+    Button,
+    Grid,
+    Card,
     CardContent,
     Chip,
     Divider,
@@ -26,11 +26,11 @@ import {
     CircularProgress,
     InputAdornment
 } from '@mui/material';
-import { 
-    Add, 
-    MoreVert, 
-    ThumbUp, 
-    ThumbDown, 
+import {
+    Add,
+    MoreVert,
+    ThumbUp,
+    ThumbDown,
     PersonAdd,
     Share,
     Edit,
@@ -62,7 +62,7 @@ const TripDetailPage = () => {
     const [email, setEmail] = useState('');
     const [anchorEl, setAnchorEl] = useState(null);
     const [editActivityId, setEditActivityId] = useState(null);
-    
+
     // Activity form state
     const [activityForm, setActivityForm] = useState({
         title: '',
@@ -72,7 +72,7 @@ const TripDetailPage = () => {
         estimated_cost: '',
         notes: ''
     });
-    
+
     // Fetch trip data with error handling
     const fetchTrip = async () => {
         try {
@@ -87,15 +87,15 @@ const TripDetailPage = () => {
             setLoading(false);
         }
     };
-    
+
     useEffect(() => {
         fetchTrip();
     }, [id, user.access]);
-    
+
     // Menu handlers
     const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
     const handleMenuClose = () => setAnchorEl(null);
-    
+
     // Trip actions
     const handleDeleteTrip = async () => {
         if (window.confirm('Are you sure you want to delete this trip?')) {
@@ -108,14 +108,14 @@ const TripDetailPage = () => {
             }
         }
     };
-    
+
     // Participant actions
     const handleInviteUser = async () => {
         if (!email) {
             setError('Please enter an email address');
             return;
         }
-        
+
         try {
             await tripService.inviteUser(id, email, user.access);
             setEmail('');
@@ -128,42 +128,85 @@ const TripDetailPage = () => {
             setError(err.detail || 'Failed to invite user');
         }
     };
-    
+
+
+
+
     // Activity actions
-    const handleActivitySubmit = async () => {
-        if (!activityForm.title || !activityForm.date) {
-            setError('Title and date are required');
-            return;
+
+    // const handleActivitySubmit = async () => {
+    //     if (!activityForm.title || !activityForm.date) {
+    //         setError('Title and date are required');
+    //         return;
+    //     }
+
+    //     try {
+    //         const activityData = {
+    //             title: activityForm.title,
+    //             date: activityForm.date.toISOString().split('T')[0],
+    //             time: activityForm.time || null,
+    //             category: activityForm.category,
+    //             estimated_cost: activityForm.estimated_cost || null,
+    //             notes: activityForm.notes || null,
+    //         };
+
+    //         if (editActivityId) {
+    //             await tripService.updateActivity(id, editActivityId, activityData, user.access);
+    //             setSuccess('Activity updated successfully!');
+    //         } else {
+    //             await tripService.createActivity(id, activityData, user.access);
+    //             setSuccess('Activity created successfully!');
+    //         }
+
+    //         setActivityDialogOpen(false);
+    //         resetActivityForm();
+    //         setTimeout(() => setSuccess(''), 3000);
+    //         fetchTrip();
+    //     } catch (err) {
+    //         console.error('Failed to save activity:', err);
+    //         setError(err.detail || 'Failed to save activity');
+    //     }
+    // };
+
+
+    // Updated activity submit handler:
+const handleActivitySubmit = async () => {
+    if (!activityForm.title || !activityForm.date) {
+        setError('Title and date are required');
+        return;
+    }
+    
+    try {
+        const activityData = {
+            title: activityForm.title,
+            date: activityForm.date.toISOString().split('T')[0],
+            time: activityForm.time || null,
+            category: activityForm.category,
+            estimated_cost: activityForm.estimated_cost ? parseFloat(activityForm.estimated_cost) : null,
+            notes: activityForm.notes || null,
+            trip: id // Explicitly include trip ID
+        };
+        
+        if (editActivityId) {
+            await tripService.updateActivity(id, editActivityId, activityData, user.access);
+            setSuccess('Activity updated successfully!');
+        } else {
+            await tripService.createActivity(id, activityData, user.access);
+            setSuccess('Activity created successfully!');
         }
         
-        try {
-            const activityData = {
-                title: activityForm.title,
-                date: activityForm.date.toISOString().split('T')[0],
-                time: activityForm.time || null,
-                category: activityForm.category,
-                estimated_cost: activityForm.estimated_cost || null,
-                notes: activityForm.notes || null,
-            };
-            
-            if (editActivityId) {
-                await tripService.updateActivity(id, editActivityId, activityData, user.access);
-                setSuccess('Activity updated successfully!');
-            } else {
-                await tripService.createActivity(id, activityData, user.access);
-                setSuccess('Activity created successfully!');
-            }
-            
-            setActivityDialogOpen(false);
-            resetActivityForm();
-            setTimeout(() => setSuccess(''), 3000);
-            fetchTrip();
-        } catch (err) {
-            console.error('Failed to save activity:', err);
-            setError(err.detail || 'Failed to save activity');
-        }
-    };
-    
+        setActivityDialogOpen(false);
+        resetActivityForm();
+        setTimeout(() => setSuccess(''), 3000);
+        fetchTrip();
+    } catch (err) {
+        console.error('Failed to save activity:', err);
+        setError(err.detail || err.message || 'Failed to save activity');
+    }
+};
+
+
+
     const resetActivityForm = () => {
         setActivityForm({
             title: '',
@@ -175,7 +218,7 @@ const TripDetailPage = () => {
         });
         setEditActivityId(null);
     };
-    
+
     const handleEditActivity = (activity) => {
         setActivityForm({
             title: activity.title,
@@ -188,7 +231,7 @@ const TripDetailPage = () => {
         setEditActivityId(activity.id);
         setActivityDialogOpen(true);
     };
-    
+
     const handleDeleteActivity = async (activityId) => {
         if (window.confirm('Are you sure you want to delete this activity?')) {
             try {
@@ -202,17 +245,29 @@ const TripDetailPage = () => {
             }
         }
     };
-    
-    const handleVote = async (activityId, vote) => {
-        try {
-            await tripService.voteActivity(id, activityId, vote, user.access);
-            fetchTrip();
-        } catch (err) {
-            console.error('Failed to vote:', err);
-            setError('Failed to record vote');
-        }
-    };
-    
+
+    // const handleVote = async (activityId, vote) => {
+    //     try {
+    //         await tripService.voteActivity(id, activityId, vote, user.access);
+    //         fetchTrip();
+    //     } catch (err) {
+    //         console.error('Failed to vote:', err);
+    //         setError('Failed to record vote');
+    //     }
+    // };
+
+
+    // Handle vote function:
+const handleVote = async (activityId, vote) => {
+    try {
+        await tripService.voteActivity(id, activityId, vote, user.access);
+        fetchTrip(); // Refresh to show updated votes
+    } catch (err) {
+        console.error('Failed to vote:', err);
+        setError('Failed to record vote');
+    }
+};
+
     const handleCopyTripCode = () => {
         if (trip?.trip_code) {
             navigator.clipboard.writeText(trip.trip_code);
@@ -222,21 +277,21 @@ const TripDetailPage = () => {
             setError('No trip code available');
         }
     };
-    
+
     // Helper functions for safe data access
     const getParticipantInitial = (participant) => {
         const displayName = participant?.user?.username || participant?.user?.email || '?';
         return displayName.charAt(0).toUpperCase();
     };
-    
+
     const getParticipantName = (participant) => {
         return participant?.user?.username || participant?.user?.email || 'Unknown participant';
     };
-    
+
     const isOrganizer = (participant) => {
         return participant?.user?.id === trip?.created_by?.id;
     };
-    
+
     // Loading and error states
     if (loading) {
         return (
@@ -245,7 +300,7 @@ const TripDetailPage = () => {
             </Container>
         );
     }
-    
+
     if (!trip) {
         return (
             <Container>
@@ -253,7 +308,7 @@ const TripDetailPage = () => {
             </Container>
         );
     }
-    
+
     // Prepare data for budget chart
     const budgetData = {
         labels: trip.activities?.map(activity => activity?.title).filter(Boolean) || [],
@@ -271,7 +326,7 @@ const TripDetailPage = () => {
             }
         ]
     };
-    
+
     // Group activities by date
     const activitiesByDate = {};
     trip.activities?.forEach(activity => {
@@ -282,7 +337,7 @@ const TripDetailPage = () => {
         }
         activitiesByDate[date].push(activity);
     });
-    
+
     return (
         <Container maxWidth="lg">
             {/* Success and error messages */}
@@ -296,13 +351,13 @@ const TripDetailPage = () => {
                     {error}
                 </Alert>
             )}
-            
+
             {/* Trip Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h4" component="h1">
                     {trip.name || 'Untitled Trip'}
                 </Typography>
-                
+
                 {trip.created_by?.id === user.id && (
                     <Box>
                         <IconButton onClick={handleMenuOpen}>
@@ -323,7 +378,7 @@ const TripDetailPage = () => {
                     </Box>
                 )}
             </Box>
-            
+
             {/* Trip Info */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid item xs={12} md={6}>
@@ -343,18 +398,18 @@ const TripDetailPage = () => {
                             <Typography>
                                 <strong>Created by:</strong> {trip.created_by?.username || trip.created_by?.email || 'Unknown'}
                             </Typography>
-                            
+
                             <Box sx={{ mt: 2 }}>
-                                <Button 
-                                    variant="outlined" 
+                                <Button
+                                    variant="outlined"
                                     startIcon={<PersonAdd />}
                                     onClick={() => setInviteDialogOpen(true)}
                                     sx={{ mr: 2 }}
                                 >
                                     Invite
                                 </Button>
-                                <Button 
-                                    variant="outlined" 
+                                <Button
+                                    variant="outlined"
                                     startIcon={<Share />}
                                     onClick={handleCopyTripCode}
                                 >
@@ -364,7 +419,7 @@ const TripDetailPage = () => {
                         </CardContent>
                     </Card>
                 </Grid>
-                
+
                 <Grid item xs={12} md={6}>
                     <Card>
                         <CardContent>
@@ -377,7 +432,7 @@ const TripDetailPage = () => {
                                         <Avatar sx={{ mr: 2 }}>
                                             {getParticipantInitial(participant)}
                                         </Avatar>
-                                        <ListItemText 
+                                        <ListItemText
                                             primary={getParticipantName(participant)}
                                             secondary={isOrganizer(participant) ? "Organizer" : ""}
                                         />
@@ -388,7 +443,7 @@ const TripDetailPage = () => {
                     </Card>
                 </Grid>
             </Grid>
-            
+
             {/* Budget Visualization */}
             {trip.activities?.some(a => a?.estimated_cost) && (
                 <Box sx={{ mb: 4 }}>
@@ -400,15 +455,15 @@ const TripDetailPage = () => {
                     </Box>
                 </Box>
             )}
-            
+
             {/* Activities Section */}
             <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h5">
                         Activities
                     </Typography>
-                    <Button 
-                        variant="contained" 
+                    <Button
+                        variant="contained"
                         startIcon={<Add />}
                         onClick={() => {
                             resetActivityForm();
@@ -418,7 +473,10 @@ const TripDetailPage = () => {
                         Add Activity
                     </Button>
                 </Box>
-                
+
+
+
+                // In the activities rendering section:
                 {Object.keys(activitiesByDate).length > 0 ? (
                     Object.entries(activitiesByDate).map(([date, activities]) => (
                         <Box key={date} sx={{ mb: 4 }}>
@@ -429,11 +487,9 @@ const TripDetailPage = () => {
                             <Grid container spacing={2}>
                                 {activities.map(activity => (
                                     <Grid item xs={12} sm={6} md={4} key={activity?.id}>
-                                        <ActivityItem 
+                                        <ActivityItem
                                             activity={activity}
                                             onVote={handleVote}
-                                            onEdit={() => handleEditActivity(activity)}
-                                            onDelete={() => handleDeleteActivity(activity.id)}
                                             currentUserId={user.id}
                                         />
                                     </Grid>
@@ -446,16 +502,18 @@ const TripDetailPage = () => {
                         No activities added yet. Click "Add Activity" to get started!
                     </Typography>
                 )}
+
+
             </Box>
-            
+
             {/* Activity Dialog */}
-            <Dialog 
-                open={activityDialogOpen} 
+            <Dialog
+                open={activityDialogOpen}
                 onClose={() => {
                     setActivityDialogOpen(false);
                     resetActivityForm();
-                }} 
-                maxWidth="sm" 
+                }}
+                maxWidth="sm"
                 fullWidth
             >
                 <DialogTitle>{editActivityId ? 'Edit Activity' : 'Add New Activity'}</DialogTitle>
@@ -465,47 +523,47 @@ const TripDetailPage = () => {
                             fullWidth
                             label="Title"
                             value={activityForm.title}
-                            onChange={(e) => setActivityForm({...activityForm, title: e.target.value})}
+                            onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
                             sx={{ mb: 2 }}
                             required
                             error={!activityForm.title}
                             helperText={!activityForm.title ? 'Required' : ''}
                         />
-                        
+
                         <LocalizationProvider dateAdapter={AdapterDateFns}>
                             <DatePicker
                                 label="Date"
                                 value={activityForm.date}
-                                onChange={(newValue) => setActivityForm({...activityForm, date: newValue})}
+                                onChange={(newValue) => setActivityForm({ ...activityForm, date: newValue })}
                                 renderInput={(params) => (
-                                    <TextField 
-                                        {...params} 
-                                        fullWidth 
-                                        sx={{ mb: 2 }} 
-                                        required 
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        sx={{ mb: 2 }}
+                                        required
                                         error={!activityForm.date}
                                         helperText={!activityForm.date ? 'Required' : ''}
                                     />
                                 )}
                             />
                         </LocalizationProvider>
-                        
+
                         <TextField
                             fullWidth
                             label="Time (optional)"
                             type="time"
                             value={activityForm.time}
-                            onChange={(e) => setActivityForm({...activityForm, time: e.target.value})}
+                            onChange={(e) => setActivityForm({ ...activityForm, time: e.target.value })}
                             InputLabelProps={{ shrink: true }}
                             sx={{ mb: 2 }}
                         />
-                        
+
                         <TextField
                             fullWidth
                             label="Category"
                             select
                             value={activityForm.category}
-                            onChange={(e) => setActivityForm({...activityForm, category: e.target.value})}
+                            onChange={(e) => setActivityForm({ ...activityForm, category: e.target.value })}
                             sx={{ mb: 2 }}
                         >
                             <MenuItem value="AD">Adventure</MenuItem>
@@ -513,26 +571,26 @@ const TripDetailPage = () => {
                             <MenuItem value="ST">Sightseeing</MenuItem>
                             <MenuItem value="OT">Other</MenuItem>
                         </TextField>
-                        
+
                         <TextField
                             fullWidth
                             label="Estimated Cost (optional)"
                             type="number"
                             value={activityForm.estimated_cost}
-                            onChange={(e) => setActivityForm({...activityForm, estimated_cost: e.target.value})}
+                            onChange={(e) => setActivityForm({ ...activityForm, estimated_cost: e.target.value })}
                             InputProps={{
                                 startAdornment: <InputAdornment position="start">$</InputAdornment>,
                             }}
                             sx={{ mb: 2 }}
                         />
-                        
+
                         <TextField
                             fullWidth
                             label="Notes (optional)"
                             multiline
                             rows={3}
                             value={activityForm.notes}
-                            onChange={(e) => setActivityForm({...activityForm, notes: e.target.value})}
+                            onChange={(e) => setActivityForm({ ...activityForm, notes: e.target.value })}
                         />
                     </Box>
                 </DialogContent>
@@ -541,8 +599,8 @@ const TripDetailPage = () => {
                         setActivityDialogOpen(false);
                         resetActivityForm();
                     }}>Cancel</Button>
-                    <Button 
-                        onClick={handleActivitySubmit} 
+                    <Button
+                        onClick={handleActivitySubmit}
                         variant="contained"
                         disabled={!activityForm.title || !activityForm.date}
                     >
@@ -550,7 +608,7 @@ const TripDetailPage = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-            
+
             {/* Invite User Dialog */}
             <Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)}>
                 <DialogTitle>Invite User to Trip</DialogTitle>
@@ -570,8 +628,8 @@ const TripDetailPage = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
-                    <Button 
-                        onClick={handleInviteUser} 
+                    <Button
+                        onClick={handleInviteUser}
                         variant="contained"
                         disabled={!email}
                     >

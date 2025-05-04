@@ -162,18 +162,38 @@ const deleteActivity = async (tripId, activityId, token) => {
   }
 };
 
+
+// this is old
+
+// const voteActivity = async (tripId, activityId, vote, token) => {
+//   try {
+//     const response = await axios.post(
+//       `${API_URL}/${tripId}/activities/${activityId}/vote/`, 
+//       { vote }, 
+//       getConfig(token)
+//     );
+//     return response.data;
+//   } catch (error) {
+//     handleApiError(error);
+//   }
+// };
+
+// this is new if no change delete
+
 const voteActivity = async (tripId, activityId, vote, token) => {
   try {
-    const response = await axios.post(
-      `${API_URL}/${tripId}/activities/${activityId}/vote/`, 
-      { vote }, 
-      getConfig(token)
-    );
-    return response.data;
+      const response = await axios.post(
+          `${API_URL}/${tripId}/activities/${activityId}/vote/`, 
+          { vote }, 
+          getConfig(token)
+      );
+      return response.data;
   } catch (error) {
-    handleApiError(error);
+      handleApiError(error);
   }
 };
+
+
 
 const tripService = {
   createTrip,
