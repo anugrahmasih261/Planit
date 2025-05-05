@@ -11,7 +11,7 @@
 # Planit-frontend
 
 
-[LIVE2](https://planit-frontend-nine.vercel.app/login)
+[LIVE2](https://planit-frontend-nine.vercel.app/)
 
 ### for testing backend use email=> test@gmail.com pass=> test@123
 
