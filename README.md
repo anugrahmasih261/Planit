@@ -15,7 +15,7 @@
 
 ## While testing Please have little patient because backend may be little slow deu to free plan try again it works 🤗
 
-### for testing frontend use email=> test@gmail.com pass=> test@123
+### for testing frontend use email=> test@gmail.com pass=> test@123 or Register new user for fast testing
 
 
 ##Screenshot.
